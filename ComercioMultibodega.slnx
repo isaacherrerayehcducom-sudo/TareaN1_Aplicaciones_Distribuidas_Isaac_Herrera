@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Catalogo.Api/Catalogo.Api.csproj" />
+  <Project Path="Inventario.Api/Inventario.Api.csproj" />
+  <Project Path="Pedidos.Api/Pedidos.Api.csproj" />
+</Solution>

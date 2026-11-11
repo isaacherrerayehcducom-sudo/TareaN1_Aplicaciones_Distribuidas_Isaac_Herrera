@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+Catalogo.Api/work/
+.vs/
+.vscode/
+.idea/
+.env
+.env.*
+!.env.example
+*.user
+*.suo
+*.log
+TestResults/

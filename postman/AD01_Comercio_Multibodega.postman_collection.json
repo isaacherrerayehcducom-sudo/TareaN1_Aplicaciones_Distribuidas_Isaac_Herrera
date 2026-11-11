@@ -1,0 +1,103 @@
+{
+  "info": {
+    "_postman_id": "df3d8890-95f8-4bf3-9706-ec53b142ed01",
+    "name": "AD01 Comercio Multibodega",
+    "description": "Flujo de demostracion para catalogo, inventario y pedidos. Arranque las tres APIs en los puertos 5081, 5082 y 5083 antes de ejecutar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "catalogUrl", "value": "http://localhost:5081" },
+    { "key": "inventoryUrl", "value": "http://localhost:5082" },
+    { "key": "ordersUrl", "value": "http://localhost:5083" },
+    { "key": "runTag", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "brandId", "value": "" },
+    { "key": "productId", "value": "" },
+    { "key": "warehouseId", "value": "" },
+    { "key": "clientId", "value": "" },
+    { "key": "reservationId", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": { "type": "text/javascript", "exec": ["if (!pm.collectionVariables.get('runTag')) pm.collectionVariables.set('runTag', Date.now().toString());"] }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Catalogo",
+      "item": [
+        {
+          "name": "Consultar productos de demostracion",
+          "request": { "method": "GET", "header": [], "url": "{{catalogUrl}}/api/productos" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('responde 200', () => pm.response.to.have.status(200));", "pm.test('incluye productos', () => pm.expect(pm.response.json()).to.be.an('array').that.is.not.empty);"] } }]
+        },
+        {
+          "name": "Crear categoria de prueba",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Postman {{$guid}}\",\n  \"descripcion\": \"Categoria de la coleccion AD01\"\n}" }, "url": "{{catalogUrl}}/api/categorias" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('crea categoria con 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('categoryId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Crear marca de prueba",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Marca {{$guid}}\",\n  \"paisOrigen\": \"Ecuador\"\n}" }, "url": "{{catalogUrl}}/api/marcas" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('crea marca con 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('brandId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Crear producto",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"idCategoria\": {{categoryId}},\n  \"idMarca\": {{brandId}},\n  \"nombre\": \"Producto {{$guid}}\",\n  \"sku\": \"PM-{{$guid}}\",\n  \"precio\": 25.50,\n  \"estado\": \"ACTIVO\"\n}" }, "url": "{{catalogUrl}}/api/productos" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('crea producto con 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('productId', pm.response.json().id);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "2. Inventario",
+      "item": [
+        {
+          "name": "Crear bodega de prueba",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Bodega {{$guid}}\",\n  \"ciudad\": \"Quito\",\n  \"direccion\": \"Direccion de prueba\",\n  \"estado\": \"ACTIVA\"\n}" }, "url": "{{inventoryUrl}}/api/bodegas" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('crea bodega con 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('warehouseId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Registrar entrada de stock",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"idProducto\": {{productId}},\n  \"idBodega\": {{warehouseId}},\n  \"tipo\": \"ENTRADA\",\n  \"cantidad\": 10,\n  \"observacion\": \"Entrada de prueba Postman\"\n}" }, "url": "{{inventoryUrl}}/api/movimientos" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('registra movimiento con 201', () => pm.response.to.have.status(201));", "pm.expect(pm.response.json().stock).to.eql(10);"] } }]
+        },
+        {
+          "name": "Consultar existencia creada",
+          "request": { "method": "GET", "header": [], "url": "{{inventoryUrl}}/api/existencias?idProducto={{productId}}&idBodega={{warehouseId}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('consulta stock con 200', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json()[0].stock).to.eql(10);"] } }]
+        },
+        {
+          "name": "Crear reserva de stock",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"idProducto\": {{productId}},\n  \"idBodega\": {{warehouseId}},\n  \"cantidad\": 3\n}" }, "url": "{{inventoryUrl}}/api/reservas" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('crea reserva con 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('reservationId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Liberar reserva",
+          "request": { "method": "PATCH", "header": [], "url": "{{inventoryUrl}}/api/reservas/{{reservationId}}/liberar" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('libera reserva con 200', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json().estado).to.eql('LIBERADA');"] } }]
+        }
+      ]
+    },
+    {
+      "name": "3. Pedidos",
+      "item": [
+        {
+          "name": "Crear cliente",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"nombres\": \"Cliente Postman {{$guid}}\",\n  \"cedula\": \"{{runTag}}\",\n  \"correo\": \"postman.{{$guid}}@example.test\",\n  \"estado\": \"ACTIVO\"\n}" }, "url": "{{ordersUrl}}/api/clientes" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('crea cliente con 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('clientId', pm.response.json().id);"] } }]
+        },
+        {
+          "name": "Crear pedido con precio consultado al catalogo",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"idCliente\": {{clientId}},\n  \"detalles\": [\n    { \"idProducto\": {{productId}}, \"cantidad\": 2 }\n  ]\n}" }, "url": "{{ordersUrl}}/api/pedidos" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('crea pedido con 201', () => pm.response.to.have.status(201));", "pm.expect(pm.response.json().total).to.eql(51);"] } }]
+        },
+        {
+          "name": "Consultar pedidos",
+          "request": { "method": "GET", "header": [], "url": "{{ordersUrl}}/api/pedidos" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('consulta pedidos con 200', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json()).to.be.an('array').that.is.not.empty;"] } }]
+        }
+      ]
+    }
+  ]
+}
